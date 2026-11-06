@@ -1,0 +1,61 @@
+name: measure-android-libs
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android-libs:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 1G
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+    steps:
+      - name: Maximize build space
+        run: |
+          df -h
+          echo "Removing dotnet"
+          sudo rm -rf /usr/share/dotnet
+          echo "Removing ghc"
+          sudo rm -rf /opt/ghc
+          echo "Removing hostedtoolcache"
+          sudo rm -rf /opt/hostedtoolcache
+          df -h
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Setup Gradle cache
+        uses: burrunan/gradle-cache-action@v3
+        with:
+          gradle-version: wrapper
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ${{ runner.os }}-ccache-android-libs-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-android-libs-
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
+
+      - name: Build libraries
+        run: |
+          npm run build:android-libs
+          ccache --show-stats
+
+      # This step exists to prove the prebuilt path works, using the libraries the
+      # previous step just built. It has to be -P, not a sed on
+      # example/android/gradle.properties: android/gradle.properties force-enables
+      # from-source builds for llama.rn, and a subproject's own gradle.properties
+      # outranks the root project's. Only the command line beats both.
+      - name: Build example for Android
+        run: |
+          cd example/android
+          ./gradlew assembleDebug --stacktrace -PrnllamaBuildFromSource=false
