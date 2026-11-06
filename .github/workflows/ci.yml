@@ -195,7 +195,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CCACHE_MAXSIZE: 1G
+      CCACHE_MAXSIZE: 5G
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
     steps:
